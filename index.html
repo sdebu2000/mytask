@@ -72,6 +72,7 @@ button{margin-top:10px;width:100%;padding:10px;border:none;color:white;cursor:po
  <div onclick="openEditCategory()">Edit Subcategory</div>
  <div onclick="openDeleteCategory()">Delete Subcategory</div>
  <div onclick="exportData()">Export Data</div>
+ <div onclick="importOldXML()">Import Old XML</div>
 </div>
 
 <!-- TASK POPUP -->
@@ -89,7 +90,6 @@ button{margin-top:10px;width:100%;padding:10px;border:none;color:white;cursor:po
 </div>
 </div>
 
-<!-- CATEGORY MANAGEMENT POPUP -->
 <div class="popup" id="categoryPopup">
 <div class="popup-content" id="categoryContent"></div>
 </div>
@@ -107,7 +107,7 @@ function saveToStorage(){
  localStorage.setItem("categories",JSON.stringify(categories));
 }
 
-/* ---------- SEARCH ---------- */
+/* SEARCH */
 
 function toggleSearch(){
  let box=document.getElementById("searchBox");
@@ -133,7 +133,7 @@ document.getElementById("searchInput").addEventListener("keypress",function(e){
  }
 });
 
-/* ---------- STATUS COLOR ---------- */
+/* STATUS COLOR */
 
 function getStatusColor(d){
  if(!d) return "blue";
@@ -147,7 +147,7 @@ function getStatusColor(d){
  return "red";
 }
 
-/* ---------- CATEGORY RENDER ---------- */
+/* CATEGORY RENDER */
 
 function renderCategories(){
  let bar=document.getElementById("categoryBar");
@@ -162,7 +162,7 @@ function renderCategories(){
  });
 }
 
-/* ---------- TASK RENDER ---------- */
+/* TASK RENDER */
 
 function renderTasks(){
  let list=document.getElementById("taskList");
@@ -187,7 +187,9 @@ function renderTasks(){
   div.innerHTML=`
    <div class="task-header">
     <div class="status" style="background:${color}"></div>
-    <div>${task.title}</div>
+    <div style="${task.completed?'text-decoration:line-through;opacity:0.6;':''}">
+     ${task.title}
+    </div>
    </div>
    <div class="task-description">
     ${task.description||""}<br>
@@ -205,11 +207,19 @@ function renderTasks(){
     openPopup(index);
   };
 
+  /* Right click / long press toggle complete */
+  div.oncontextmenu=(e)=>{
+    e.preventDefault();
+    task.completed=!task.completed;
+    saveToStorage();
+    renderTasks();
+  };
+
   list.appendChild(div);
  });
 }
 
-/* ---------- EXPORT TO XML (ONLY CHANGE MADE) ---------- */
+/* EXPORT */
 
 function exportData(){
 
@@ -230,10 +240,10 @@ function exportData(){
    xml += `      <Category>${escapeXML(task.category||"")}</Category>\n`;
    xml += `      <Date>${escapeXML(task.date||"")}</Date>\n`;
    xml += `      <Time>${escapeXML(task.time||"")}</Time>\n`;
+   xml += `      <Completed>${task.completed?"true":"false"}</Completed>\n`;
    xml += `    </Task>\n`;
  });
  xml += `  </Tasks>\n`;
-
  xml += `</TaskApp>`;
 
  let blob = new Blob([xml], {type: "application/xml"});
@@ -252,7 +262,85 @@ function escapeXML(str){
   .replace(/'/g,"&apos;");
 }
 
-/* ---------- REST UNCHANGED ---------- */
+/* IMPORT OLD TASKLIST XML */
+
+function importOldXML(){
+
+ if(!confirm("WARNING: This will replace ALL existing data. Continue?")) return;
+
+ let input=document.createElement("input");
+ input.type="file";
+ input.accept=".xml";
+
+ input.onchange=function(e){
+  let file=e.target.files[0];
+  let reader=new FileReader();
+
+  reader.onload=function(evt){
+   let parser=new DOMParser();
+   let xmlDoc=parser.parseFromString(evt.target.result,"text/xml");
+
+   let categoryNodes=xmlDoc.getElementsByTagName("Category");
+   let newCategories=[];
+   let newTasks=[];
+
+   for(let i=0;i<categoryNodes.length;i++){
+
+    let catName=categoryNodes[i].getAttribute("Name");
+    if(!catName) continue;
+
+    if(!newCategories.includes(catName)){
+      newCategories.push(catName);
+    }
+
+    let taskNodes=categoryNodes[i].getElementsByTagName("Task");
+
+    for(let j=0;j<taskNodes.length;j++){
+
+      let caption=taskNodes[j].getAttribute("Caption")||"";
+      let desc=taskNodes[j].getAttribute("Description")||"";
+      let completed=taskNodes[j].getAttribute("Completed")==="true";
+      let due=taskNodes[j].getAttribute("DueTime");
+
+      let date="";
+      let time="";
+
+      if(due && due!=="0"){
+        let d=new Date(parseInt(due));
+        date=d.toISOString().split("T")[0];
+        time=d.toTimeString().slice(0,5);
+      }
+
+      desc=desc.replace(/!br!/g,"<br>");
+
+      newTasks.push({
+        title:caption,
+        description:desc,
+        category:catName,
+        date:date,
+        time:time,
+        completed:completed
+      });
+    }
+   }
+
+   categories=newCategories;
+   tasks=newTasks;
+   currentCategory=categories[0]||"";
+   saveToStorage();
+   renderCategories();
+   renderTasks();
+
+   alert("Old XML imported successfully!");
+  };
+
+  reader.readAsText(file);
+ };
+
+ input.click();
+}
+
+/* REST (UNCHANGED LOGIC) */
 
 function openPopup(index=null){
  document.getElementById("popup").style.display="flex";
@@ -291,7 +379,8 @@ function saveTask(){
   description:document.getElementById("taskDescription").value,
   category:document.getElementById("taskCategory").value,
   date:document.getElementById("taskDate").value,
-  time:document.getElementById("taskTime").value
+  time:document.getElementById("taskTime").value,
+  completed:(editIndex!==null && tasks[editIndex]?.completed)?tasks[editIndex].completed:false
  };
  if(editIndex!==null){ tasks[editIndex]=data; }
  else{ tasks.push(data); }
@@ -397,11 +486,12 @@ renderCategories();
 renderTasks();
 
 </script>
+
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function() {
     navigator.serviceWorker.register('./sw.js')
-      .then(function(registration) {
+      .then(function() {
         console.log('ServiceWorker registered successfully');
       })
       .catch(function(error) {
