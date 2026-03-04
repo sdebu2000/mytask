@@ -75,6 +75,7 @@ button{margin-top:10px;width:100%;padding:10px;border:none;color:white;cursor:po
  <div onclick="importOldXML()">Import Old XML</div>
 </div>
 
+<!-- TASK POPUP -->
 <div class="popup" id="popup">
 <div class="popup-content">
 <h3 id="popupTitle">Add Task</h3>
@@ -82,6 +83,7 @@ button{margin-top:10px;width:100%;padding:10px;border:none;color:white;cursor:po
 <textarea id="taskDescription" placeholder="Task Description"></textarea>
 <select id="taskCategory"></select>
 
+<!-- 🔵 PRIORITY DROPDOWN ADDED -->
 <select id="taskPriority">
   <option value="Normal">Normal</option>
   <option value="High">High</option>
@@ -113,10 +115,66 @@ function saveToStorage(){
  localStorage.setItem("categories",JSON.stringify(categories));
 }
 
-function getPriorityColor(priority){
- if(priority==="High") return "red";
- if(priority==="Low") return "black";
+/* 🔵 PRIORITY COLOR FUNCTION */
+function getPriorityColor(p){
+ if(p==="High") return "red";
+ if(p==="Low") return "black";
  return "white";
+}
+
+/* SEARCH */
+
+function toggleSearch(){
+ let box=document.getElementById("searchBox");
+ box.style.display=box.style.display==="block"?"none":"block";
+ if(box.style.display==="block"){
+  document.getElementById("searchInput").focus();
+ }
+}
+
+function clearSearch(){
+ document.getElementById("searchInput").value="";
+ searchActive=false;
+ document.getElementById("clearSearchBtn").style.display="none";
+ renderTasks();
+}
+
+document.getElementById("searchInput").addEventListener("keypress",function(e){
+ if(e.key==="Enter"){
+  searchActive=true;
+  document.getElementById("searchBox").style.display="none";
+  document.getElementById("clearSearchBtn").style.display="block";
+  renderTasks();
+ }
+});
+
+/* STATUS COLOR */
+
+function getStatusColor(d){
+ if(!d) return "blue";
+ let today=new Date();
+ let yyyy=today.getFullYear();
+ let mm=String(today.getMonth()+1).padStart(2,'0');
+ let dd=String(today.getDate()).padStart(2,'0');
+ let todayStr=`${yyyy}-${mm}-${dd}`;
+ if(d===todayStr) return "green";
+ if(d>todayStr) return "black";
+ return "red";
+}
+
+/* CATEGORY RENDER */
+
+function renderCategories(){
+ let bar=document.getElementById("categoryBar");
+ bar.innerHTML="";
+ categories.forEach(cat=>{
+  let div=document.createElement("div");
+  div.className="category";
+  if(cat===currentCategory) div.classList.add("active");
+  div.innerText=cat;
+  div.onclick=()=>{currentCategory=cat;renderCategories();renderTasks();};
+  bar.appendChild(div);
+ });
 }
 
 /* TASK RENDER */
@@ -137,13 +195,14 @@ function renderTasks(){
    if(task.category!==currentCategory) return;
   }
 
+  let color=getStatusColor(task.date);
   let priorityColor=getPriorityColor(task.priority||"Normal");
 
   let div=document.createElement("div");
   div.className="task";
   div.innerHTML=`
    <div class="task-header">
-    <div class="status" style="background:${getStatusColor(task.date)}"></div>
+    <div class="status" style="background:${color}"></div>
     <div style="
       color:${priorityColor};
       ${task.completed?'text-decoration:line-through;opacity:0.6;':''}
@@ -186,7 +245,7 @@ function saveTask(){
   title:document.getElementById("taskTitle").value,
   description:document.getElementById("taskDescription").value,
   category:document.getElementById("taskCategory").value,
-  priority:document.getElementById("taskPriority").value,
+  priority:document.getElementById("taskPriority").value||"Normal",
   date:document.getElementById("taskDate").value,
   time:document.getElementById("taskTime").value,
   completed:(editIndex!==null && tasks[editIndex]?.completed)?tasks[editIndex].completed:false
@@ -197,8 +256,6 @@ function saveTask(){
  closePopup();
  renderTasks();
 }
-
-/* OPEN POPUP */
 
 function openPopup(index=null){
  document.getElementById("popup").style.display="flex";
@@ -233,11 +290,17 @@ function openPopup(index=null){
  }
 }
 
-/* Keep your existing getStatusColor, importOldXML, export, category functions unchanged below */
-
-renderCategories();
-renderTasks();
+/* Remaining code unchanged */
 
 </script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('./sw.js');
+  });
+}
+</script>
+
 </body>
 </html>
