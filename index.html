@@ -82,6 +82,13 @@ button{margin-top:10px;width:100%;padding:10px;border:none;color:white;cursor:po
 <input id="taskTitle" placeholder="Task Title">
 <textarea id="taskDescription" placeholder="Task Description"></textarea>
 <select id="taskCategory"></select>
+
+<select id="taskPriority">
+  <option value="Normal">Normal</option>
+  <option value="High">High</option>
+  <option value="Low">Low</option>
+</select>
+
 <input type="date" id="taskDate">
 <input type="time" id="taskTime">
 <button class="save-btn" onclick="saveTask()">Save Task</button>
@@ -147,6 +154,13 @@ function getStatusColor(d){
  return "red";
 }
 
+/* NEW PRIORITY COLOR FUNCTION */
+function getPriorityColor(p){
+ if(p==="High") return "red";
+ if(p==="Low") return "black";
+ return "white";
+}
+
 /* CATEGORY RENDER */
 
 function renderCategories(){
@@ -187,7 +201,7 @@ function renderTasks(){
   div.innerHTML=`
    <div class="task-header">
     <div class="status" style="background:${color}"></div>
-    <div style="${task.completed?'text-decoration:line-through;opacity:0.6;':''}">
+    <div style="color:${getPriorityColor(task.priority||'Normal')};${task.completed?'text-decoration:line-through;opacity:0.6;':''}">
      ${task.title}
     </div>
    </div>
@@ -358,19 +372,20 @@ function openPopup(index=null){
   document.getElementById("popupTitle").innerText="Edit Task";
   document.getElementById("taskTitle").value=t.title;
   document.getElementById("taskDescription").value=t.description||"";
-  document.getElementById("taskCategory").value=t.category;
+  document.getElementById("taskPriority").value=t.priority||"Normal";
   document.getElementById("taskDate").value=t.date||"";
   document.getElementById("taskTime").value=t.time||"";
   document.getElementById("deleteBtn").style.display="block";
- }else{
+}else{
   editIndex=null;
   document.getElementById("popupTitle").innerText="Add Task";
   document.getElementById("taskTitle").value="";
   document.getElementById("taskDescription").value="";
+  document.getElementById("taskPriority").value="Normal";   // ADD THIS
   document.getElementById("taskDate").value="";
   document.getElementById("taskTime").value="";
   document.getElementById("deleteBtn").style.display="none";
- }
+}
 }
 
 function saveTask(){
@@ -378,6 +393,7 @@ function saveTask(){
   title:document.getElementById("taskTitle").value,
   description:document.getElementById("taskDescription").value,
   category:document.getElementById("taskCategory").value,
+  priority:document.getElementById("taskPriority").value || "Normal",
   date:document.getElementById("taskDate").value,
   time:document.getElementById("taskTime").value,
   completed:(editIndex!==null && tasks[editIndex]?.completed)?tasks[editIndex].completed:false
