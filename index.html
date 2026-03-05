@@ -95,6 +95,17 @@ button{margin-top:10px;width:100%;padding:10px;border:none;color:white;cursor:po
 
 <input type="date" id="taskDate">
 <input type="time" id="taskTime">
+<select id="taskRepeat" onchange="handleRepeatChange()">
+  <option value="None">No Repeat</option>
+  <option value="Daily">Daily</option>
+  <option value="Weekly">Weekly</option>
+  <option value="Monthly">Monthly</option>
+  <option value="Quarterly">Quarterly</option>
+  <option value="Yearly">Yearly</option>
+  <option value="Custom">Custom Date</option>
+</select>
+
+<input type="date" id="customRepeatDate" style="display:none;">
 <button class="save-btn" onclick="saveTask()">Save Task</button>
 <button class="delete-btn" id="deleteBtn" onclick="deleteTask()" style="display:none;">Delete Task</button>
 <button class="cancel-btn" onclick="closePopup()">Cancel</button>
@@ -205,7 +216,13 @@ function renderTasks(){
   div.innerHTML=`
    <div class="task-header">
     <div class="status" style="background:${color}"></div>
-    <div style="color:${getPriorityColor(task.priority||'Normal')};${task.completed?'text-decoration:line-through;opacity:0.6;':''}">
+    
+    <div style="color:${getPriorityColor(task.priority||'Normal')};${
+  (task.completed && (!task.repeat || task.repeat==="None"))
+    ? 'text-decoration:line-through;opacity:0.6;'
+    : ''
+}">
+
      ${task.title}
     </div>
    </div>
@@ -226,12 +243,62 @@ function renderTasks(){
   };
 
   /* Right click / long press toggle complete */
-  div.oncontextmenu=(e)=>{
-    e.preventDefault();
-    task.completed=!task.completed;
+div.oncontextmenu=(e)=>{
+  e.preventDefault();
+
+
+  if(task.repeat && task.repeat!=="None" && task.date){
+
+  let current = new Date(task.date);
+
+  if(task.repeat==="Daily"){
+    current.setDate(current.getDate()+1);
+  }
+  else if(task.repeat==="Weekly"){
+    current.setDate(current.getDate()+7);
+  }
+  else if(task.repeat==="Monthly"){
+    let day = current.getDate();
+    current.setMonth(current.getMonth()+1);
+
+    // preserve day-of-month
+    if(current.getDate() !== day){
+      current.setDate(0); // last valid day of previous month
+    }
+  }
+  else if(task.repeat==="Quarterly"){
+    let day = current.getDate();
+    current.setMonth(current.getMonth()+3);
+
+    if(current.getDate() !== day){
+      current.setDate(0);
+    }
+  }
+  else if(task.repeat==="Yearly"){
+    let day = current.getDate();
+    current.setFullYear(current.getFullYear()+1);
+
+    if(current.getDate() !== day){
+      current.setDate(0);
+    }
+  }
+  else if(task.repeat==="Custom" && task.customRepeatDate){
+    task.date = task.customRepeatDate;
     saveToStorage();
     renderTasks();
-  };
+    return;
+  }
+
+  task.date = formatDate(current);
+  task.completed = false;
+}
+  else{
+    task.completed=!task.completed;
+  }
+
+  saveToStorage();
+  renderTasks();
+};
 
   list.appendChild(div);
  });
@@ -258,6 +325,9 @@ function exportData(){
    xml += `      <Category>${escapeXML(task.category||"")}</Category>\n`;
    xml += `      <Date>${escapeXML(task.date||"")}</Date>\n`;
    xml += `      <Time>${escapeXML(task.time||"")}</Time>\n`;
+   xml += `      <Priority>${escapeXML(task.priority||"Normal")}</Priority>\n`;
+   xml += `      <Repeat>${escapeXML(task.repeat||"None")}</Repeat>\n`;
+   xml += `      <CustomRepeatDate>${escapeXML(task.customRepeatDate||"")}</CustomRepeatDate>\n`;
    xml += `      <Completed>${task.completed?"true":"false"}</Completed>\n`;
    xml += `    </Task>\n`;
  });
@@ -376,9 +446,13 @@ function openPopup(index=null){
   document.getElementById("popupTitle").innerText="Edit Task";
   document.getElementById("taskTitle").value=t.title;
   document.getElementById("taskDescription").value=t.description||"";
+  document.getElementById("taskCategory").value = t.category;
   document.getElementById("taskPriority").value=t.priority||"Normal";
   document.getElementById("taskDate").value=t.date||"";
   document.getElementById("taskTime").value=t.time||"";
+  document.getElementById("taskRepeat").value = t.repeat || "None";
+  document.getElementById("customRepeatDate").value = t.customRepeatDate || "";
+  handleRepeatChange();
   document.getElementById("deleteBtn").style.display="block";
 }else{
   editIndex=null;
@@ -388,6 +462,9 @@ function openPopup(index=null){
   document.getElementById("taskPriority").value="Normal";   // ADD THIS
   document.getElementById("taskDate").value="";
   document.getElementById("taskTime").value="";
+  document.getElementById("taskRepeat").value="None";
+  document.getElementById("customRepeatDate").value="";
+  handleRepeatChange();
   document.getElementById("deleteBtn").style.display="none";
 }
 }
@@ -400,6 +477,8 @@ function saveTask(){
   priority:document.getElementById("taskPriority").value || "Normal",
   date:document.getElementById("taskDate").value,
   time:document.getElementById("taskTime").value,
+  repeat: document.getElementById("taskRepeat").value || "None",
+  customRepeatDate: document.getElementById("customRepeatDate").value || "",
   completed:(editIndex!==null && tasks[editIndex]?.completed)?tasks[editIndex].completed:false
  };
  if(editIndex!==null){ tasks[editIndex]=data; }
@@ -500,6 +579,19 @@ function closeCategoryPopup(){
 function toggleMore(){
  let m=document.getElementById("moreMenu");
  m.style.display=m.style.display==="block"?"none":"block";
+}
+
+function handleRepeatChange(){
+  let repeat=document.getElementById("taskRepeat").value;
+  let custom=document.getElementById("customRepeatDate");
+  custom.style.display = repeat==="Custom" ? "block" : "none";
+}
+
+function formatDate(d){
+  let yyyy=d.getFullYear();
+  let mm=String(d.getMonth()+1).padStart(2,'0');
+  let dd=String(d.getDate()).padStart(2,'0');
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 renderCategories();
