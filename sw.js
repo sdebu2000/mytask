@@ -1,4 +1,4 @@
-const CACHE_NAME = "mytask-cache-v9";
+const CACHE_NAME = "mytask-cache-v10";
 
 const FILES_TO_CACHE = [
   "./",
@@ -38,6 +38,7 @@ self.addEventListener("fetch", event => {
   );
 
 });
+
 
 
 
