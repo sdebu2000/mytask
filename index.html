@@ -58,9 +58,9 @@ button{margin-top:10px;width:100%;padding:10px;border:none;color:white;cursor:po
 
 <div class="top-bar">
  <div id="categoryBar" style="flex:1;display:flex;"></div>
- <div class="search-icon" onclick="toggleSearch()">🔍</div>
- <div class="search-icon" id="clearSearchBtn" onclick="clearSearch()" style="display:none;color:red;">❌</div>
-</div>
+ <div class="search-icon" onclick="openSearchPopup()">🔍</div>
+ <div class="search-icon" onclick="clearSearch()" id="clearSearchBtn" style="display:none;color:red;">❌</div>
+ </div>
 
 <div class="search-container" id="searchBox">
  <input type="text" id="searchInput" placeholder="Search text...">
@@ -75,6 +75,9 @@ button{margin-top:10px;width:100%;padding:10px;border:none;color:white;cursor:po
  <div onclick="addCategory()">Add Subcategory</div>
  <div onclick="openEditCategory()">Edit Subcategory</div>
  <div onclick="openDeleteCategory()">Delete Subcategory</div>
+
+ <div onclick="showNext7Days()">Next 7 Days Tasks</div>   <!-- NEW -->
+
  <div onclick="exportData()">Export Data</div>
  <div onclick="importOldXML()">Import Old XML</div>
 </div>
@@ -116,6 +119,60 @@ button{margin-top:10px;width:100%;padding:10px;border:none;color:white;cursor:po
 <div class="popup-content" id="categoryContent"></div>
 </div>
 
+
+<!-- ADVANCED SEARCH POPUP -->
+<div class="popup" id="searchPopup">
+<div class="popup-content">
+
+<h3>Advanced Search</h3>
+
+<input id="searchText" placeholder="Text search (optional)">
+
+<label>Category</label>
+<select id="searchCategory"></select>
+
+<label>Priority</label>
+<select id="searchPriority">
+<option value="">All</option>
+<option value="High">High</option>
+<option value="Normal">Normal</option>
+<option value="Low">Low</option>
+</select>
+
+<label>Date Filter</label>
+<select id="searchDate">
+<option value="">All</option>
+<option value="overdue">Overdue</option>
+<option value="today">Today</option>
+<option value="yesterday">Yesterday</option>
+<option value="tomorrow">Tomorrow</option>
+<option value="week">Next 7 Days</option>
+</select>
+
+<label>Recurring Tasks</label>
+<select id="searchRepeat">
+<option value="">All</option>
+<option value="repeat">Recurring Only</option>
+</select>
+
+<label>Completed</label>
+<select id="searchCompleted">
+<option value="">All</option>
+<option value="yes">Completed Only</option>
+<option value="no">Incomplete Only</option>
+</select>
+
+<label>
+<input type="checkbox" id="includeUndated" checked>
+Include Undated Tasks
+</label>
+
+<button class="save-btn" onclick="runAdvancedSearch()">Search</button>
+<button class="cancel-btn" onclick="closeSearchPopup()">Cancel</button>
+
+</div>
+</div>
+
 <script>
 
 let categories=JSON.parse(localStorage.getItem("categories"))||["Res","OUT","Ph","PC","OFF","Note"];
@@ -123,6 +180,7 @@ let tasks=JSON.parse(localStorage.getItem("tasks"))||[];
 let currentCategory=categories[0];
 let editIndex=null;
 let searchActive=false;
+let next7Mode=false;     // NEW FLAG
 
 function saveToStorage(){
  localStorage.setItem("tasks",JSON.stringify(tasks));
@@ -142,17 +200,18 @@ function toggleSearch(){
 function clearSearch(){
  document.getElementById("searchInput").value="";
  searchActive=false;
+ next7Mode=false;   // reset
  document.getElementById("clearSearchBtn").style.display="none";
  renderTasks();
 }
 
 document.getElementById("searchInput").addEventListener("keypress",function(e){
- if(e.key==="Enter"){
-  searchActive=true;
-  document.getElementById("searchBox").style.display="none";
-  document.getElementById("clearSearchBtn").style.display="block";
-  renderTasks();
- }
+if(e.key==="Enter"){
+ searchActive=true;
+ document.getElementById("searchBox").style.display="none";
+ document.getElementById("clearSearchBtn").style.display="block";
+ renderTasks();
+}
 });
 
 /* STATUS COLOR */
@@ -198,6 +257,9 @@ function renderTasks(){
  list.innerHTML="";
  let searchText=document.getElementById("searchInput").value.toLowerCase();
 
+ let today = new Date();
+ today.setHours(0,0,0,0);
+
  tasks.forEach((task,index)=>{
 
   if(searchActive){
@@ -205,11 +267,30 @@ function renderTasks(){
       !(task.description||"").toLowerCase().includes(searchText)){
       return;
    }
-  }else{
-   if(task.category!==currentCategory) return;
-  }
+ 
+   }else{
+
+   if(next7Mode){
+
+      if(!task.date) return;
+
+      let limit = new Date(today);
+      limit.setDate(today.getDate()+7);
+
+      let d=new Date(task.date);
+
+      if(d < today || d > limit) return;
+
+   }else{
+
+      if(task.category!==currentCategory) return;
+
+   }
+}
 
   let color=getStatusColor(task.date);
+  let repeatIcon = task.repeat && task.repeat!="None" ? " 🔁" : "";
+  let overdueIcon = (!task.completed && task.date && new Date(task.date)<today) ? " ⚠️" : "";
 
   let div=document.createElement("div");
   div.className="task";
@@ -223,7 +304,7 @@ function renderTasks(){
     : ''
 }">
 
-     ${task.title}
+     ${task.title}${repeatIcon}${overdueIcon}
     </div>
    </div>
    <div class="task-description">
@@ -576,6 +657,96 @@ function closeCategoryPopup(){
  document.getElementById("categoryPopup").style.display="none";
 }
 
+function openSearchPopup(){
+
+ document.getElementById("searchPopup").style.display="flex";
+
+ let catSelect=document.getElementById("searchCategory");
+ catSelect.innerHTML="<option value=''>All Categories</option>";
+
+ categories.forEach(c=>{
+  let o=document.createElement("option");
+  o.value=c;
+  o.text=c;
+  catSelect.appendChild(o);
+ });
+
+}
+
+function closeSearchPopup(){
+ document.getElementById("searchPopup").style.display="none";
+}
+
+function runAdvancedSearch(){
+
+ let text=document.getElementById("searchText").value.toLowerCase();
+ let cat=document.getElementById("searchCategory").value;
+ let pr=document.getElementById("searchPriority").value;
+ let dateFilter=document.getElementById("searchDate").value;
+ let repeat=document.getElementById("searchRepeat").value;
+ let completed=document.getElementById("searchCompleted").value;
+ let includeUndated=document.getElementById("includeUndated").checked;
+
+ searchActive=true;
+
+ let today=new Date();
+ let todayStr=formatDate(today);
+
+ let tomorrow=new Date();
+ tomorrow.setDate(today.getDate()+1);
+
+ let yesterday=new Date();
+ yesterday.setDate(today.getDate()-1);
+
+ let week=new Date();
+ week.setDate(today.getDate()+7);
+
+ filteredTasks=tasks.filter(task=>{
+
+  if(text){
+   let combined=(task.title+" "+(task.description||"")).toLowerCase();
+   if(!combined.includes(text)) return false;
+  }
+
+  if(cat && task.category!==cat) return false;
+
+  if(pr && task.priority!==pr) return false;
+
+  if(repeat==="repeat" && (!task.repeat || task.repeat==="None")) return false;
+
+  if(completed==="yes" && !task.completed) return false;
+  if(completed==="no" && task.completed) return false;
+
+  if(!includeUndated && !task.date) return false;
+
+  if(dateFilter){
+
+   if(!task.date) return false;
+
+   let d=new Date(task.date);
+
+   if(dateFilter==="overdue" && d>=today) return false;
+
+   if(dateFilter==="today" && task.date!==todayStr) return false;
+
+   if(dateFilter==="yesterday" && task.date!==formatDate(yesterday)) return false;
+
+   if(dateFilter==="tomorrow" && task.date!==formatDate(tomorrow)) return false;
+
+   if(dateFilter==="week" && (d<today || d>week)) return false;
+
+  }
+
+  return true;
+
+ });
+
+ document.getElementById("clearSearchBtn").style.display="block";
+ renderFilteredTasks();
+
+ closeSearchPopup();
+}
+
 function toggleMore(){
  let m=document.getElementById("moreMenu");
  m.style.display=m.style.display==="block"?"none":"block";
@@ -592,6 +763,70 @@ function formatDate(d){
   let mm=String(d.getMonth()+1).padStart(2,'0');
   let dd=String(d.getDate()).padStart(2,'0');
   return `${yyyy}-${mm}-${dd}`;
+}
+
+let filteredTasks=null;
+
+function renderFilteredTasks(){
+
+ let list=document.getElementById("taskList");
+ list.innerHTML="";
+
+ if(!filteredTasks || filteredTasks.length===0){
+  list.innerHTML="<div style='padding:10px'>No matching tasks</div>";
+  return;
+ }
+
+ filteredTasks.sort((a,b)=>{
+
+ if(!a.date) return 1;
+ if(!b.date) return -1;
+
+ return a.date.localeCompare(b.date);
+
+});
+
+ filteredTasks.forEach(task=>{
+  let color=getStatusColor(task.date);
+
+  let overdueIcon = "";
+let repeatIcon = "";
+
+if(task.date){
+  let today = new Date().toISOString().split("T")[0];
+  if(task.date < today && (!task.completed || task.repeat)){
+    overdueIcon = " 🔴";
+  }
+}
+
+if(task.repeat && task.repeat !== "None"){
+  repeatIcon = " 🔁";
+}
+
+  let div=document.createElement("div");
+  div.className="task";
+
+  div.innerHTML=`
+   <div class="task-header">
+    <div class="status" style="background:${color}"></div>
+    <div style="color:${getPriorityColor(task.priority||'Normal')}">
+     ${task.title}${repeatIcon}${overdueIcon}
+    </div>
+   </div>
+  `;
+
+  list.appendChild(div);
+ });
+}
+
+function showNext7Days(){
+
+ next7Mode=true;
+ searchActive=false;
+
+ document.getElementById("clearSearchBtn").style.display="block";
+
+ renderTasks();
 }
 
 renderCategories();
