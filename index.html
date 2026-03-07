@@ -290,7 +290,7 @@ function renderTasks(){
 
   let color=getStatusColor(task.date);
   let repeatIcon = task.repeat && task.repeat!="None" ? " 🔁" : "";
-  let overdueIcon = (!task.completed && task.date && new Date(task.date)<today) ? " ⚠️" : "";
+  
 
   let div=document.createElement("div");
   div.className="task";
@@ -304,7 +304,7 @@ function renderTasks(){
     : ''
 }">
 
-     ${task.title}${repeatIcon}${overdueIcon}
+    ${task.title}${repeatIcon}
     </div>
    </div>
    <div class="task-description">
@@ -823,14 +823,10 @@ function renderFilteredTasks(){
  filteredTasks.forEach(task=>{
   let color=getStatusColor(task.date);
 
-  let overdueIcon = "";
-let repeatIcon = "";
+  let repeatIcon = "";
 
-if(task.date){
-  let today = new Date().toISOString().split("T")[0];
-  if(task.date < today && (!task.completed || task.repeat)){
-    overdueIcon = " 🔴";
-  }
+if(task.repeat && task.repeat !== "None"){
+  repeatIcon = " 🔁";
 }
 
 if(task.repeat && task.repeat !== "None"){
@@ -844,7 +840,7 @@ if(task.repeat && task.repeat !== "None"){
    <div class="task-header">
     <div class="status" style="background:${color}"></div>
     <div style="color:${getPriorityColor(task.priority||'Normal')}">
-     ${task.title}${repeatIcon}${overdueIcon}
+     ${task.title}${repeatIcon}
     </div>
    </div>
   `;
