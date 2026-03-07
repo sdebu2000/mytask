@@ -435,21 +435,31 @@ function escapeXML(str){
 
 function importOldXML(){
 
- if(!confirm("WARNING: This will replace ALL existing data. Continue?")) return;
+ let mode = prompt(
+"Choose Import Mode:\n\n1 = Replace ALL existing data\n2 = Merge with existing data\n\nEnter 1 or 2"
+ );
+
+ if(mode!=="1" && mode!=="2"){
+  alert("Import cancelled");
+  return;
+ }
 
  let input=document.createElement("input");
  input.type="file";
  input.accept=".xml";
 
  input.onchange=function(e){
+
   let file=e.target.files[0];
   let reader=new FileReader();
 
   reader.onload=function(evt){
+
    let parser=new DOMParser();
    let xmlDoc=parser.parseFromString(evt.target.result,"text/xml");
 
    let categoryNodes=xmlDoc.getElementsByTagName("Category");
+
    let newCategories=[];
    let newTasks=[];
 
@@ -493,17 +503,41 @@ function importOldXML(){
     }
    }
 
-   categories=newCategories;
-   tasks=newTasks;
+   /* ----- REPLACE MODE ----- */
+
+   if(mode==="1"){
+
+     categories=newCategories;
+     tasks=newTasks;
+
+   }
+
+   /* ----- MERGE MODE ----- */
+
+   if(mode==="2"){
+
+     newCategories.forEach(cat=>{
+       if(!categories.includes(cat)){
+         categories.push(cat);
+       }
+     });
+
+     tasks = tasks.concat(newTasks);
+
+   }
+
    currentCategory=categories[0]||"";
+
    saveToStorage();
    renderCategories();
    renderTasks();
 
-   alert("Old XML imported successfully!");
+   alert("XML import completed successfully!");
+
   };
 
   reader.readAsText(file);
+
  };
 
  input.click();
