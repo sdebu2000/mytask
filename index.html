@@ -273,8 +273,11 @@ if(searchBox){
 
 sortedTasks.sort((a,b)=>{
 
+  if(a.completed && !b.completed) return 1;
+  if(!a.completed && b.completed) return -1;
+
   if(!a.date && !b.date) return 0;
-  if(!a.date) return 1;      // undated last
+  if(!a.date) return 1;
   if(!b.date) return -1;
 
   let da=new Date(a.date);
@@ -347,10 +350,11 @@ sortedTasks.sort((a,b)=>{
     d.style.display=d.style.display==="block"?"none":"block";
   };
 
-  div.ondblclick=(e)=>{
-    e.stopPropagation();
-    openPopup(index);
-  };
+ div.ondblclick=(e)=>{
+  e.stopPropagation();
+  let realIndex = tasks.indexOf(task);
+  openPopup(realIndex);
+};
 
   /* Right click / long press toggle complete */
 div.oncontextmenu=(e)=>{
@@ -677,28 +681,71 @@ function editCategory(){
 }
 
 function openDeleteCategory(){
- let html=`<h3>Delete Subcategory</h3>
- <select id="delCatSelect">${categories.map(c=>`<option>${c}</option>`).join("")}</select>
+
+ let html = `
+ <h3>Delete Subcategory</h3>
+
+ <select id="delCatSelect" onchange="checkCategoryTasks()">
+ ${categories.map(c=>`<option>${c}</option>`).join("")}
+ </select>
+
  <div id="moveSection"></div>
+
  <button class="delete-btn" onclick="prepareDelete()">Delete</button>
- <button class="cancel-btn" onclick="closeCategoryPopup()">Cancel</button>`;
- document.getElementById("categoryContent").innerHTML=html;
- document.getElementById("categoryPopup").style.display="flex";
+ <button class="cancel-btn" onclick="closeCategoryPopup()">Cancel</button>
+ `;
+
+ document.getElementById("categoryContent").innerHTML = html;
+ document.getElementById("categoryPopup").style.display = "flex";
+
+ checkCategoryTasks();
+}
+
+function checkCategoryTasks(){
+
+ let selected = document.getElementById("delCatSelect").value;
+
+ let hasTasks = tasks.some(t => t.category === selected);
+
+ if(!hasTasks){
+     document.getElementById("moveSection").innerHTML = "";
+     return;
+ }
+
+ let otherCats = categories.filter(c => c !== selected);
+
+ document.getElementById("moveSection").innerHTML = `
+ <p>This category contains tasks.</p>
+ <p>Select where to move them:</p>
+
+ <select id="moveToCat">
+ ${otherCats.map(c=>`<option>${c}</option>`).join("")}
+ </select>
+ `;
 }
 
 function prepareDelete(){
- let cat=document.getElementById("delCatSelect").value;
- let related=tasks.filter(t=>t.category===cat);
 
- if(related.length>0){
-  let otherCats=categories.filter(c=>c!==cat);
-  let moveHTML=`<div class="warning">${related.length} tasks found. Move to:</div>
-   <select id="moveTo">${otherCats.map(c=>`<option>${c}</option>`).join("")}</select>
-   <button class="delete-btn" onclick="confirmDeleteCategory()">Confirm Delete</button>`;
-  document.getElementById("moveSection").innerHTML=moveHTML;
- }else{
-  confirmDeleteCategory();
+ let delCat = document.getElementById("delCatSelect").value;
+
+ let moveSelect = document.getElementById("moveToCat");
+
+ if(moveSelect){
+     let moveTo = moveSelect.value;
+
+     tasks.forEach(t=>{
+         if(t.category === delCat){
+             t.category = moveTo;
+         }
+     });
  }
+
+ categories = categories.filter(c=>c!==delCat);
+
+ saveToStorage();
+ closeCategoryPopup();
+ renderCategories();
+ renderTasks();
 }
 
 function confirmDeleteCategory(){
@@ -718,6 +765,7 @@ function confirmDeleteCategory(){
 
 function closeCategoryPopup(){
  document.getElementById("categoryPopup").style.display="none";
+ document.getElementById("moreMenu").style.display="none";
 }
 
 function openSearchPopup(){
