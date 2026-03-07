@@ -889,23 +889,18 @@ function renderFilteredTasks(){
  }
 
  filteredTasks.sort((a,b)=>{
+  if(!a.date) return 1;
+  if(!b.date) return -1;
+  return a.date.localeCompare(b.date);
+ });
 
- if(!a.date) return 1;
- if(!b.date) return -1;
-
- return a.date.localeCompare(b.date);
-
-});
+ let today = new Date();
+ today.setHours(0,0,0,0);
 
  filteredTasks.forEach(task=>{
+
   let color=getStatusColor(task.date);
-
-  let repeatIcon = "";
-
-if(task.repeat && task.repeat !== "None"){
-  repeatIcon = " 🔁";
-}
-
+  let repeatIcon = task.repeat && task.repeat!=="None" ? " 🔁" : "";
 
   let div=document.createElement("div");
   div.className="task";
@@ -913,11 +908,75 @@ if(task.repeat && task.repeat !== "None"){
   div.innerHTML=`
    <div class="task-header">
     <div class="status" style="background:${color}"></div>
-    <div style="color:${getPriorityColor(task.priority||'Normal')}">
+    <div style="color:${getPriorityColor(task.priority||'Normal')};${
+      (task.completed && (!task.repeat || task.repeat==="None"))
+      ? 'text-decoration:line-through;opacity:0.6;'
+      : ''
+    }">
      ${task.title}${repeatIcon}
     </div>
    </div>
+   <div class="task-description">
+    ${task.description||""}<br>
+    ${task.date||""} ${task.time||""}
+   </div>
   `;
+
+  /* Single click → expand */
+  div.onclick=()=>{
+    let d=div.querySelector(".task-description");
+    d.style.display=d.style.display==="block"?"none":"block";
+  };
+
+  /* Double click → edit */
+  div.ondblclick=(e)=>{
+    e.stopPropagation();
+    let realIndex = tasks.indexOf(task);
+    openPopup(realIndex);
+  };
+
+  /* Right click / long press → complete / reschedule */
+  div.oncontextmenu=(e)=>{
+    e.preventDefault();
+
+    if(task.repeat && task.repeat!=="None" && task.date){
+
+      let current = new Date(task.date);
+
+      if(task.repeat==="Daily") current.setDate(current.getDate()+1);
+      else if(task.repeat==="Weekly") current.setDate(current.getDate()+7);
+      else if(task.repeat==="Monthly"){
+        let day=current.getDate();
+        current.setMonth(current.getMonth()+1);
+        if(current.getDate()!==day) current.setDate(0);
+      }
+      else if(task.repeat==="Quarterly"){
+        let day=current.getDate();
+        current.setMonth(current.getMonth()+3);
+        if(current.getDate()!==day) current.setDate(0);
+      }
+      else if(task.repeat==="Yearly"){
+        let day=current.getDate();
+        current.setFullYear(current.getFullYear()+1);
+        if(current.getDate()!==day) current.setDate(0);
+      }
+      else if(task.repeat==="Custom" && task.customRepeatDate){
+        task.date = task.customRepeatDate;
+        saveToStorage();
+        renderFilteredTasks();
+        return;
+      }
+
+      task.date = formatDate(current);
+      task.completed = false;
+    }
+    else{
+      task.completed = !task.completed;
+    }
+
+    saveToStorage();
+    renderFilteredTasks();
+  };
 
   list.appendChild(div);
  });
