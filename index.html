@@ -265,10 +265,27 @@ if(searchBox){
   searchText=searchBox.value.toLowerCase();
 }
 
- let today = new Date();
- today.setHours(0,0,0,0);
+ let sortedTasks = [...tasks];
 
- tasks.forEach((task,index)=>{
+sortedTasks.sort((a,b)=>{
+
+  if(!a.date && !b.date) return 0;
+  if(!a.date) return 1;      // undated last
+  if(!b.date) return -1;
+
+  let da=new Date(a.date);
+  let db=new Date(b.date);
+
+  let ta = da < today ? 0 : (da.getTime()===today.getTime()?1:2);
+  let tb = db < today ? 0 : (db.getTime()===today.getTime()?1:2);
+
+  if(ta!==tb) return ta-tb;
+
+  return da-db;
+
+});
+
+ sortedTasks.forEach((task)=>{
 
   if(searchActive){
    if(!(task.title||"").toLowerCase().includes(searchText) &&
@@ -855,6 +872,8 @@ if(task.repeat && task.repeat !== "None"){
 }
 
 function showNext7Days(){
+
+ document.getElementById("moreMenu").style.display="none";
 
  next7Mode=true;
  searchActive=false;
