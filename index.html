@@ -289,7 +289,7 @@ sortedTasks.sort((a,b)=>{
 
 });
 
- sortedTasks.forEach((task)=>{
+ sortedTasks.forEach((task,index)=>{
 
   if(searchActive){
    if(!(task.title||"").toLowerCase().includes(searchText) &&
