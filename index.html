@@ -205,14 +205,18 @@ function clearSearch(){
  renderTasks();
 }
 
-document.getElementById("searchInput").addEventListener("keypress",function(e){
-if(e.key==="Enter"){
- searchActive=true;
- document.getElementById("searchBox").style.display="none";
- document.getElementById("clearSearchBtn").style.display="block";
- renderTasks();
+let searchInputEl=document.getElementById("searchInput");
+
+if(searchInputEl){
+ searchInputEl.addEventListener("keypress",function(e){
+  if(e.key==="Enter"){
+   searchActive=true;
+   document.getElementById("searchBox").style.display="none";
+   document.getElementById("clearSearchBtn").style.display="block";
+   renderTasks();
+  }
+ });
 }
-});
 
 /* STATUS COLOR */
 
@@ -739,7 +743,7 @@ function runAdvancedSearch(){
  let week=new Date();
  week.setDate(today.getDate()+7);
 
- filteredTasks=tasks.filter(task=>{
+ filteredTasks = tasks.filter(task=>{
 
   if(text){
    let combined=(task.title+" "+(task.description||"")).toLowerCase();
@@ -803,7 +807,7 @@ function formatDate(d){
   return `${yyyy}-${mm}-${dd}`;
 }
 
-let filteredTasks=null;
+let filteredTasks=[];
 
 function renderFilteredTasks(){
 
