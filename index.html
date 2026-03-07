@@ -260,6 +260,10 @@ function renderTasks(){
  let list=document.getElementById("taskList");
  list.innerHTML="";
  let searchText="";
+
+let today = new Date();
+today.setHours(0,0,0,0);
+
 let searchBox=document.getElementById("searchInput");
 if(searchBox){
   searchText=searchBox.value.toLowerCase();
