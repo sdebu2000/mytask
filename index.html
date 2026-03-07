@@ -255,7 +255,11 @@ function renderCategories(){
 function renderTasks(){
  let list=document.getElementById("taskList");
  list.innerHTML="";
- let searchText=document.getElementById("searchInput").value.toLowerCase();
+ let searchText="";
+let searchBox=document.getElementById("searchInput");
+if(searchBox){
+  searchText=searchBox.value.toLowerCase();
+}
 
  let today = new Date();
  today.setHours(0,0,0,0);
@@ -829,9 +833,6 @@ if(task.repeat && task.repeat !== "None"){
   repeatIcon = " 🔁";
 }
 
-if(task.repeat && task.repeat !== "None"){
-  repeatIcon = " 🔁";
-}
 
   let div=document.createElement("div");
   div.className="task";
