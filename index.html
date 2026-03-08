@@ -1,20 +1,44 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>My Task App</title>
+<title>New Task App</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
-body{margin:0;font-family:Arial;background:#4b2c2c;color:white;}
-.top-bar{background:black;padding:10px 5px;display:flex;align-items:center;}
-.category{flex:1;text-align:center;cursor:pointer;}
+body{margin:0;font-family:Arial;background:#2f5d7c;color:white;}
+
+.top-bar{
+  background:#003366;
+  padding:10px 5px;
+  display:flex;
+  align-items:center;
+}
+
+#categoryBar{
+  flex:1;
+  display:flex;
+}
+
+.category{
+  flex:1;
+  text-align:center;
+  cursor:pointer;
+}
+
+.search-icon{
+  width:40px;
+  text-align:center;
+  cursor:pointer;
+  font-size:18px;
+}
+
 .category.active{font-weight:bold;text-decoration:underline;}
 .search-icon{width:40px;text-align:center;cursor:pointer;font-size:18px;}
 
-.search-container{display:none;background:#3a1f1f;padding:8px;}
+.search-container{display:none;background:#244a63;padding:8px;}
 .search-container input{width:100%;padding:8px;border:none;}
 
-.task{border-bottom:1px solid #3a1f1f;padding:8px 10px;cursor:pointer;}
+.task{border-bottom:1px solid #244a63;padding:8px 10px;cursor:pointer;}
 .task-header{display:flex;align-items:center;gap:8px;}
 .status{width:14px;height:14px;border-radius:50%;}
 .task-description{margin-top:6px;display:none;font-size:13px;color:#ddd;}
@@ -28,7 +52,7 @@ body{margin:0;font-family:Arial;background:#4b2c2c;color:white;}
 
 .more-menu{
  position:fixed;right:80px;bottom:80px;
- background:#3a1f1f;display:none;padding:10px;border-radius:8px;
+ background:#244a63;display:none;padding:10px;border-radius:8px;
 }
 .more-menu div{padding:8px 15px;cursor:pointer;}
 .more-menu div:hover{background:#5a2f2f;}
@@ -38,7 +62,7 @@ body{margin:0;font-family:Arial;background:#4b2c2c;color:white;}
  background:rgba(0,0,0,0.7);
  display:none;justify-content:center;align-items:center;
 }
-.popup-content{background:#3a1f1f;padding:20px;width:320px;}
+.popup-content{background:#244a63;padding:20px;width:320px;}
 
 input,textarea,select{width:100%;padding:8px;margin-top:10px;border:none;}
 select{
@@ -78,7 +102,8 @@ button{margin-top:10px;width:100%;padding:10px;border:none;color:white;cursor:po
 
  <div onclick="showNext7Days()">Next 7 Days Tasks</div>   <!-- NEW -->
 
- <div onclick="exportData()">Export Data</div>
+ <div onclick="exportToXLSX()">Export to XLSX</div>
+ <div onclick="exportToXML()">Export to XML</div>
  <div onclick="importOldXML()">Import Old XML</div>
 </div>
 
@@ -105,10 +130,9 @@ button{margin-top:10px;width:100%;padding:10px;border:none;color:white;cursor:po
   <option value="Monthly">Monthly</option>
   <option value="Quarterly">Quarterly</option>
   <option value="Yearly">Yearly</option>
-  <option value="Custom">Custom Date</option>
 </select>
 
-<input type="date" id="customRepeatDate" style="display:none;">
+
 <button class="save-btn" onclick="saveTask()">Save Task</button>
 <button class="delete-btn" id="deleteBtn" onclick="deleteTask()" style="display:none;">Delete Task</button>
 <button class="cancel-btn" onclick="closePopup()">Cancel</button>
@@ -175,16 +199,20 @@ Include Undated Tasks
 
 <script>
 
-let categories=JSON.parse(localStorage.getItem("categories"))||["Res","OUT","Ph","PC","OFF","Note"];
-let tasks=JSON.parse(localStorage.getItem("tasks"))||[];
-let currentCategory=categories[0];
+let storedCategories = JSON.parse(localStorage.getItem("categories_B")) || [];
+let categories = ["ALL", ...storedCategories.filter(c => c !== "ALL")];
+let tasks = JSON.parse(localStorage.getItem("tasks_B")) || []
+let currentCategory="ALL";
 let editIndex=null;
 let searchActive=false;
 let next7Mode=false;     // NEW FLAG
 
 function saveToStorage(){
- localStorage.setItem("tasks",JSON.stringify(tasks));
- localStorage.setItem("categories",JSON.stringify(categories));
+localStorage.setItem("tasks_B", JSON.stringify(tasks));
+
+// remove ALL before saving
+let catsToSave = categories.filter(c => c !== "ALL");
+localStorage.setItem("categories_B", JSON.stringify(catsToSave));
 }
 
 /* SEARCH */
@@ -315,7 +343,7 @@ sortedTasks.sort((a,b)=>{
 
    }else{
 
-      if(task.category!==currentCategory) return;
+      if(currentCategory !== "ALL" && task.category !== currentCategory) return;
 
    }
 }
@@ -356,63 +384,66 @@ sortedTasks.sort((a,b)=>{
   openPopup(realIndex);
 };
 
-  /* Right click / long press toggle complete */
-div.oncontextmenu=(e)=>{
-  e.preventDefault();
+div.oncontextmenu = function(e){
+ e.preventDefault();
 
+ let action;
 
-  if(task.repeat && task.repeat!=="None" && task.date){
+ if(task.completed){
+   action = prompt("Choose action:\n1 = Delete\n2 = Not-Done");
+ } else {
+   action = prompt("Choose action:\n1 = Delete\n2 = Done");
+ }
 
-  let current = new Date(task.date);
+ if(action==="1"){
+   if(confirm("Delete this task?")){
+     let realIndex = tasks.indexOf(task);
+     tasks.splice(realIndex,1);
+   }
+ }
+ else if(action==="2"){
 
-  if(task.repeat==="Daily"){
-    current.setDate(current.getDate()+1);
-  }
-  else if(task.repeat==="Weekly"){
-    current.setDate(current.getDate()+7);
-  }
-  else if(task.repeat==="Monthly"){
-    let day = current.getDate();
-    current.setMonth(current.getMonth()+1);
+   if(task.repeat && task.repeat!=="None" && task.date){
 
-    // preserve day-of-month
-    if(current.getDate() !== day){
-      current.setDate(0); // last valid day of previous month
-    }
-  }
-  else if(task.repeat==="Quarterly"){
-    let day = current.getDate();
-    current.setMonth(current.getMonth()+3);
+     let current = new Date(task.date);
 
-    if(current.getDate() !== day){
-      current.setDate(0);
-    }
-  }
-  else if(task.repeat==="Yearly"){
-    let day = current.getDate();
-    current.setFullYear(current.getFullYear()+1);
+     if(task.repeat==="Daily") current.setDate(current.getDate()+1);
+     else if(task.repeat==="Weekly") current.setDate(current.getDate()+7);
+     else if(task.repeat==="Monthly"){
+       let day=current.getDate();
+       current.setMonth(current.getMonth()+1);
+       if(current.getDate()!==day) current.setDate(0);
+     }
+     else if(task.repeat==="Quarterly"){
+       let day=current.getDate();
+       current.setMonth(current.getMonth()+3);
+       if(current.getDate()!==day) current.setDate(0);
+     }
+     else if(task.repeat==="Yearly"){
+       let day=current.getDate();
+       current.setFullYear(current.getFullYear()+1);
+       if(current.getDate()!==day) current.setDate(0);
+     }
 
-    if(current.getDate() !== day){
-      current.setDate(0);
-    }
-  }
-  else if(task.repeat==="Custom" && task.customRepeatDate){
-    task.date = task.customRepeatDate;
-    saveToStorage();
+     task.date = formatDate(current);
+     task.completed = false;
+   }
+   else{
+     task.completed = !task.completed;
+   }
+ }
+
+ saveToStorage();
+if(searchActive){
+    renderFilteredTasks();
+}else{
     renderTasks();
-    return;
-  }
-
-  task.date = formatDate(current);
-  task.completed = false;
 }
-  else{
-    task.completed=!task.completed;
-  }
-
-  saveToStorage();
-  renderTasks();
 };
+
+  /* Right click / long press toggle complete */
+
+
 
   list.appendChild(div);
  });
@@ -420,7 +451,9 @@ div.oncontextmenu=(e)=>{
 
 /* EXPORT */
 
-function exportData(){
+function exportToXML(){
+
+ document.getElementById("moreMenu").style.display="none";
 
  let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
  xml += `<TaskApp>\n`;
@@ -451,12 +484,55 @@ function exportData(){
  let blob = new Blob([xml], {type: "application/xml"});
  let a = document.createElement("a");
  a.href = URL.createObjectURL(blob);
- a.download = "task_backup.xml";
+
+ let d = new Date();
+ let dd = String(d.getDate()).padStart(2,'0');
+ let mm = String(d.getMonth()+1).padStart(2,'0');
+ let yy = String(d.getFullYear()).slice(-2);
+
+ a.download = `Newtask.xml-${dd}${mm}${yy}`;
+ a.click();
+}
+
+function exportToXLSX(){
+
+ document.getElementById("moreMenu").style.display="none";
+
+ let rows = [
+  ["Title","Description","Category","Date","Time","Priority","Repeat","Completed"]
+ ];
+
+ tasks.forEach(t=>{
+  rows.push([
+    t.title||"",
+    t.description||"",
+    t.category||"",
+    t.date||"",
+    t.time||"",
+    t.priority||"Normal",
+    t.repeat||"None",
+    t.completed?"Yes":"No"
+  ]);
+ });
+
+ let csvContent = rows.map(r=>r.join(",")).join("\n");
+
+ let blob = new Blob([csvContent], {type: "application/vnd.ms-excel"});
+ let a = document.createElement("a");
+ a.href = URL.createObjectURL(blob);
+
+ let d = new Date();
+ let dd = String(d.getDate()).padStart(2,'0');
+ let mm = String(d.getMonth()+1).padStart(2,'0');
+ let yy = String(d.getFullYear()).slice(-2);
+
+ a.download = `Newtask-${dd}${mm}${yy}.xlsx`;
  a.click();
 }
 
 function escapeXML(str){
- return str
+ if(!str) return "";
+ return String(str)
   .replace(/&/g,"&amp;")
   .replace(/</g,"&lt;")
   .replace(/>/g,"&gt;")
@@ -540,7 +616,7 @@ function importOldXML(){
 
    if(mode==="1"){
 
-     categories=newCategories;
+     categories=["ALL", ...newCategories.filter(c=>c!=="ALL")];
      tasks=newTasks;
 
    }
@@ -599,7 +675,6 @@ function openPopup(index=null){
   document.getElementById("taskDate").value=t.date||"";
   document.getElementById("taskTime").value=t.time||"";
   document.getElementById("taskRepeat").value = t.repeat || "None";
-  document.getElementById("customRepeatDate").value = t.customRepeatDate || "";
   handleRepeatChange();
   document.getElementById("deleteBtn").style.display="block";
 }else{
@@ -611,13 +686,20 @@ function openPopup(index=null){
   document.getElementById("taskDate").value="";
   document.getElementById("taskTime").value="";
   document.getElementById("taskRepeat").value="None";
-  document.getElementById("customRepeatDate").value="";
+ 
   handleRepeatChange();
   document.getElementById("deleteBtn").style.display="none";
 }
 }
 
 function saveTask(){
+  let repeatValue = document.getElementById("taskRepeat").value;
+let dateValue = document.getElementById("taskDate").value;
+
+if(repeatValue !== "None" && !dateValue){
+ alert("Recurring tasks must have a date.");
+ return;
+}
  let data={
   title:document.getElementById("taskTitle").value,
   description:document.getElementById("taskDescription").value,
@@ -626,7 +708,6 @@ function saveTask(){
   date:document.getElementById("taskDate").value,
   time:document.getElementById("taskTime").value,
   repeat: document.getElementById("taskRepeat").value || "None",
-  customRepeatDate: document.getElementById("customRepeatDate").value || "",
   completed:(editIndex!==null && tasks[editIndex]?.completed)?tasks[editIndex].completed:false
  };
  if(editIndex!==null){ tasks[editIndex]=data; }
@@ -651,8 +732,11 @@ function closePopup(){
 }
 
 function addCategory(){
+ document.getElementById("moreMenu").style.display="none";   // ADD THIS
+
  let c=prompt("New Subcategory:");
  if(!c || categories.includes(c)) return;
+
  categories.push(c);
  saveToStorage();
  renderCategories();
@@ -660,7 +744,9 @@ function addCategory(){
 
 function openEditCategory(){
  let html=`<h3>Edit Subcategory</h3>
- <select id="editCatSelect">${categories.map(c=>`<option>${c}</option>`).join("")}</select>
+<select id="editCatSelect">
+${categories.filter(c=>c!=="ALL").map(c=>`<option>${c}</option>`).join("")}
+</select>
  <input id="newCatName" placeholder="New name">
  <button class="save-btn" onclick="editCategory()">Rename</button>
  <button class="cancel-btn" onclick="closeCategoryPopup()">Cancel</button>`;
@@ -686,7 +772,7 @@ function openDeleteCategory(){
  <h3>Delete Subcategory</h3>
 
  <select id="delCatSelect" onchange="checkCategoryTasks()">
- ${categories.map(c=>`<option>${c}</option>`).join("")}
+ ${categories.filter(c=>c!=="ALL").map(c=>`<option>${c}</option>`).join("")}
  </select>
 
  <div id="moveSection"></div>
@@ -864,9 +950,7 @@ function toggleMore(){
 }
 
 function handleRepeatChange(){
-  let repeat=document.getElementById("taskRepeat").value;
-  let custom=document.getElementById("customRepeatDate");
-  custom.style.display = repeat==="Custom" ? "block" : "none";
+  // No custom repeat anymore
 }
 
 function formatDate(d){
@@ -936,47 +1020,7 @@ function renderFilteredTasks(){
   };
 
   /* Right click / long press → complete / reschedule */
-  div.oncontextmenu=(e)=>{
-    e.preventDefault();
-
-    if(task.repeat && task.repeat!=="None" && task.date){
-
-      let current = new Date(task.date);
-
-      if(task.repeat==="Daily") current.setDate(current.getDate()+1);
-      else if(task.repeat==="Weekly") current.setDate(current.getDate()+7);
-      else if(task.repeat==="Monthly"){
-        let day=current.getDate();
-        current.setMonth(current.getMonth()+1);
-        if(current.getDate()!==day) current.setDate(0);
-      }
-      else if(task.repeat==="Quarterly"){
-        let day=current.getDate();
-        current.setMonth(current.getMonth()+3);
-        if(current.getDate()!==day) current.setDate(0);
-      }
-      else if(task.repeat==="Yearly"){
-        let day=current.getDate();
-        current.setFullYear(current.getFullYear()+1);
-        if(current.getDate()!==day) current.setDate(0);
-      }
-      else if(task.repeat==="Custom" && task.customRepeatDate){
-        task.date = task.customRepeatDate;
-        saveToStorage();
-        renderFilteredTasks();
-        return;
-      }
-
-      task.date = formatDate(current);
-      task.completed = false;
-    }
-    else{
-      task.completed = !task.completed;
-    }
-
-    saveToStorage();
-    renderFilteredTasks();
-  };
+  
 
   list.appendChild(div);
  });
@@ -996,6 +1040,17 @@ function showNext7Days(){
 
 renderCategories();
 renderTasks();
+
+document.addEventListener("click", function(e){
+ let menu = document.getElementById("moreMenu");
+ let btn = document.querySelector(".more-btn");
+
+ if(menu.style.display==="block" &&
+    !menu.contains(e.target) &&
+    !btn.contains(e.target)){
+      menu.style.display="none";
+ }
+});
 
 </script>
 
