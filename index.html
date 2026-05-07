@@ -38,9 +38,32 @@ body{margin:0;font-family:Arial;background:#4b2c2c;color:white;}
  background:rgba(0,0,0,0.7);
  display:none;justify-content:center;align-items:center;
 }
-.popup-content{background:#3a1f1f;padding:20px;width:320px;}
 
-input,textarea,select{width:100%;padding:8px;margin-top:10px;border:none;}
+.popup-content{
+ background:#3a1f1f;
+ padding:20px;
+ width:95%;
+ max-width:700px;
+ max-height:90vh;
+ overflow:auto;
+ box-sizing:border-box;
+}
+
+input,textarea,select{
+ width:100%;
+ padding:8px;
+ margin-top:10px;
+ border:none;
+ box-sizing:border-box;
+}
+
+#taskDescription{
+ min-height:220px;
+ resize:vertical;
+ font-family:Arial;
+ line-height:1.4;
+}
+
 select{
   background:white;
   color:black;
@@ -78,8 +101,10 @@ button{margin-top:10px;width:100%;padding:10px;border:none;color:white;cursor:po
 
  <div onclick="showNext7Days()">Next 7 Days Tasks</div>   <!-- NEW -->
 
- <div onclick="exportData()">Export Data</div>
- <div onclick="importOldXML()">Import Old XML</div>
+ <div onclick="exportToXML()">Export to XML</div>
+<div onclick="exportToCSV()">Export to CSV</div>
+<div onclick="importNewXML()">Import New XML</div>
+<div onclick="importOldXML()">Import Old XML</div>
 </div>
 
 <!-- TASK POPUP -->
@@ -340,7 +365,7 @@ sortedTasks.sort((a,b)=>{
     </div>
    </div>
    <div class="task-description">
-    ${task.description||""}<br>
+    ${(task.description||"").replace(/\n/g,"<br>")}<br>
     ${task.date||""} ${task.time||""}
    </div>
   `;
@@ -420,7 +445,44 @@ div.oncontextmenu=(e)=>{
 
 /* EXPORT */
 
-function exportData(){
+function exportToCSV(){
+
+ let rows = [
+  ["Title","Description","Category","Date","Time","Priority","Repeat","CustomRepeatDate","Completed"]
+ ];
+
+ tasks.forEach(t=>{
+  rows.push([
+    `"${(t.title||"").replace(/"/g,'""')}"`,
+    `"${(t.description||"").replace(/"/g,'""')}"`,
+    `"${t.category||""}"`,
+    `"${t.date||""}"`,
+    `"${t.time||""}"`,
+    `"${t.priority||"Normal"}"`,
+    `"${t.repeat||"None"}"`,
+    `"${t.customRepeatDate||""}"`,
+    `"${t.completed?"Yes":"No"}"`
+  ]);
+ });
+
+ let csvContent = rows.map(r=>r.join(",")).join("\n");
+
+ let blob = new Blob([csvContent], {type: "text/csv"});
+
+ let a = document.createElement("a");
+ a.href = URL.createObjectURL(blob);
+
+ let d = new Date();
+
+ a.download =
+   `task_backup_${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}.csv`;
+
+ a.click();
+}
+
+
+
+function exportToXML(){
 
  let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
  xml += `<TaskApp>\n`;
@@ -465,6 +527,100 @@ function escapeXML(str){
 }
 
 /* IMPORT OLD TASKLIST XML */
+
+function importNewXML(){
+
+ let mode = prompt(
+"Choose Import Mode:\n\n1 = Replace ALL existing data\n2 = Merge with existing data\n\nEnter 1 or 2"
+ );
+
+ if(mode!=="1" && mode!=="2"){
+   alert("Import cancelled");
+   return;
+ }
+
+ let input=document.createElement("input");
+ input.type="file";
+ input.accept=".xml";
+
+ input.onchange=function(e){
+
+   let file=e.target.files[0];
+   let reader=new FileReader();
+
+   reader.onload=function(evt){
+
+     let parser=new DOMParser();
+     let xmlDoc=parser.parseFromString(evt.target.result,"text/xml");
+
+     let newCategories=[];
+     let newTasks=[];
+
+     /* READ CATEGORIES */
+     let catNodes = xmlDoc.getElementsByTagName("Category");
+
+     for(let i=0;i<catNodes.length;i++){
+
+       let name = catNodes[i].textContent.trim();
+
+       if(name && !newCategories.includes(name)){
+          newCategories.push(name);
+       }
+     }
+
+     /* READ TASKS */
+     let taskNodes = xmlDoc.getElementsByTagName("Task");
+
+     for(let i=0;i<taskNodes.length;i++){
+
+       let getTag=(tag)=>{
+         let el=taskNodes[i].getElementsByTagName(tag)[0];
+         return el ? el.textContent : "";
+       };
+
+       newTasks.push({
+         title:getTag("Title"),
+         description:getTag("Description"),
+         category:getTag("Category"),
+         date:getTag("Date"),
+         time:getTag("Time"),
+         priority:getTag("Priority") || "Normal",
+         repeat:getTag("Repeat") || "None",
+         customRepeatDate:getTag("CustomRepeatDate") || "",
+         completed:getTag("Completed")==="true"
+       });
+     }
+
+     if(mode==="1"){
+       categories=newCategories;
+       tasks=newTasks;
+     }
+
+     if(mode==="2"){
+
+       newCategories.forEach(cat=>{
+         if(!categories.includes(cat)){
+           categories.push(cat);
+         }
+       });
+
+       tasks = tasks.concat(newTasks);
+     }
+
+     currentCategory=categories[0] || "";
+
+     saveToStorage();
+     renderCategories();
+     renderTasks();
+
+     alert("New XML imported successfully!");
+   };
+
+   reader.readAsText(file);
+ };
+
+ input.click();
+}
 
 function importOldXML(){
 
@@ -593,7 +749,9 @@ function openPopup(index=null){
   editIndex=index;
   document.getElementById("popupTitle").innerText="Edit Task";
   document.getElementById("taskTitle").value=t.title;
-  document.getElementById("taskDescription").value=t.description||"";
+  document.getElementById("taskDescription").value =
+ (t.description||"").replace(/<br\s*\/?>/gi,"\n");
+
   document.getElementById("taskCategory").value = t.category;
   document.getElementById("taskPriority").value=t.priority||"Normal";
   document.getElementById("taskDate").value=t.date||"";
@@ -917,7 +1075,7 @@ function renderFilteredTasks(){
     </div>
    </div>
    <div class="task-description">
-    ${task.description||""}<br>
+    ${(task.description||"").replace(/\n/g,"<br>")}<br>
     ${task.date||""} ${task.time||""}
    </div>
   `;
